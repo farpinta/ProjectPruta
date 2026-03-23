@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 // import { CityDevice } from './mockData';
@@ -67,6 +68,7 @@ const deviceIcons: Record<string, { color: string; icon: string; label: string }
 const statusLabels = sharedStatusLabels;
 
 function CityMap({ devices, loading = false, onAddPosition, addMode = false, showRanges = true }: CityMapProps) {
+  const navigate = useNavigate();
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const tempMarkerRef = useRef<L.Marker | null>(null);
@@ -136,12 +138,25 @@ function CityMap({ devices, loading = false, onAddPosition, addMode = false, sho
     if (!mapContainerRef.current) return;
     if (mapRef.current) return;
 
-    const map = L.map(mapContainerRef.current).setView([13.7367, 100.5332], 13);
+    const CHONBURI_BOUNDS: L.LatLngBoundsLiteral = [
+      [12.3, 100.7],  // southwest
+      [13.6, 101.5]   // northeast
+    ];
+
+    const map = L.map(mapContainerRef.current, {
+      center: [12.7011, 100.9674],
+      zoom: 12,
+      minZoom: 10,
+      maxZoom: 18,
+      maxBounds: CHONBURI_BOUNDS,
+      maxBoundsViscosity: 1.0,
+    });
     mapRef.current = map;
 
     const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
+      minZoom: 10,
+      maxZoom: 18,
     });
 
     // Loading indicator for map tiles
@@ -246,19 +261,6 @@ function CityMap({ devices, loading = false, onAddPosition, addMode = false, sho
       }
       addDeviceMarker(markerLayer, device);
     });
-
-    // Update center based on visible devices
-    if (visibleDevices.length > 0) {
-      let centerLat = 0;
-      let centerLng = 0;
-      visibleDevices.forEach((d) => {
-        centerLat += d.lat;
-        centerLng += d.lng;
-      });
-      centerLat /= visibleDevices.length;
-      centerLng /= visibleDevices.length;
-      map.setView([centerLat, centerLng], 14);
-    }
   }, [visibleDevices, showRanges]);
 
 const addDeviceMarker = (layer: L.LayerGroup, device: CityDevice) => {
@@ -314,6 +316,14 @@ const addDeviceMarker = (layer: L.LayerGroup, device: CityDevice) => {
         
         <div class="popup-footer" style="padding: 16px;">
           <button 
+            class="view-detail-btn" 
+            style="width: 100%; padding: 10px; background-color: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 8px; transition: 0.2s; box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);"
+            onmouseover="this.style.backgroundColor='#2563eb'"
+            onmouseout="this.style.backgroundColor='#3b82f6'"
+          >
+            🔍 ดูรายละเอียด
+          </button>
+          <button 
             class="report-issue-btn" 
             style="width: 100%; padding: 10px; background-color: #ef4444; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);"
             onmouseover="this.style.backgroundColor='#dc2626'"
@@ -354,6 +364,13 @@ const addDeviceMarker = (layer: L.LayerGroup, device: CityDevice) => {
           reportBtn.addEventListener('click', () => {
             alert(`เตรียมส่งข้อมูลไปหน้าแจ้งซ่อม!\n\nรหัสอุปกรณ์: ${device.id}\nชื่อ: ${device.name}\nสถานะ: ${statusLabels[device.status]}`);
             marker.closePopup();
+          });
+        }
+
+        const detailBtn = popupElement.querySelector('.view-detail-btn');
+        if (detailBtn) {
+          detailBtn.addEventListener('click', () => {
+            navigate(`/device/${device.type}/${device.id}`);
           });
         }
       }

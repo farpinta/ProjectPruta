@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, MapPin, Save } from 'lucide-react';
 import './AddPositionModal.css';
 
@@ -40,10 +40,10 @@ function AddPositionModal({ isOpen, onClose, onSave, initialLat = 0, initialLng 
   const [lng, setLng] = useState(initialLng);
 
   // Update coordinates when props change
-  useState(() => {
+  useEffect(() => {
     setLat(initialLat);
     setLng(initialLng);
-  });
+  }, [initialLat, initialLng]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -275,10 +275,10 @@ const StreetLight: React.FC<Props> = ({ selectedId }) => {
                     </div>
                 </div>
                 <ReportButton 
-                   deviceId={selected?.WIFI_ID || ''} 
-                   deviceName={selected?.WIFI_NAME || ''}
-                   location={selected?.ADDRESS || ''}
-                   status={selected?.WIFI_STATUS || ''}
+                   deviceId={selected?.ASSET_ID || ''} 
+                   deviceName={selected?.LOCATION || ''}
+                   location={`${selected?.LAT || ''}, ${selected?.LON || selected?.LNG || ''}`}
+                   status={selected?.STATUS || ''}
                 />
             </div>
           </div>

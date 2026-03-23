@@ -12,20 +12,11 @@ import StreetLight from './StreetLight';
 import WifiSpot from './WifiSpot';
 import FireHydrant from './FireHydrant';
 import CityMap from './CityMap';
-import { DeviceDetail } from './components/DeviceDetail';
 import AddPositionModal, { NewPositionData } from './AddPositionModal';
 // import Complaint from './Complaint'; 
 
 function App() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const page = location.pathname === '/' ? 'overview' : location.pathname.includes('/devices') ? 'devices' : location.pathname.split('/')[1];
-  const setPage = (p: string) => {
-    if (p === 'overview') navigate('/');
-    else if (p === 'devices') navigate('/devices');
-    else navigate(`/${p}`);
-  };
-
+  const [page, setPage] = useState('overview');
   const [deviceTab, setDeviceTab] = useState<'streetlight' | 'wifi' | 'hydrant'>('streetlight');
 
   // ===== 1. Toggle Panel (เปิด/ปิด) =====
@@ -357,10 +348,6 @@ function App() {
         {page === 'wifi' && <WifiSpot selectedId={selectedWifiId ?? undefined} />}
         {page === 'firehydrant' && <FireHydrant selectedId={selectedHydrantId ?? undefined} />}
         
-        <Routes>
-          <Route path="/device/:type/:id" element={<DeviceDetail devices={mapDevices} />} />
-        </Routes>
-
         {/* กรณีหน้า Devices */}
         {page === 'devices' && (
           <div className="device-page" style={{ padding: '20px', background: 'white', height: '100%', overflowY: 'auto' }}>

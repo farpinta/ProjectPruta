@@ -225,9 +225,9 @@ const WifiSpot: React.FC<Props> = ({ selectedId }) => {
                             </div>
                             <ReportButton 
                    deviceId={selected?.WIFI_ID || ''} 
-                   deviceName={selected?.WIFI_NAME || ''}
-                   location={selected?.ADDRESS || ''}
-                   status={selected?.WIFI_STATUS || ''}
+                   deviceName={selected?.LOCATION || ''}
+                   location={`${selected?.LAT || ''}, ${selected?.LON || selected?.LNG || ''}`}
+                   status={selected?.STATUS || ''}
                 />
                         </div>
                     </div>
