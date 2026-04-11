@@ -4,6 +4,11 @@ import { getSchemaHeaders, listSchemaSheets } from './googleSheetsSchema';
 import { REQUIRED_DEVICE_COLUMNS } from './customDeviceSchemas';
 
 const DEFAULT_SCHEMA_SPREADSHEET_ID = '1o0HsgmEeKRmKO6mUKGrppjgAIsFWlfJ87U-YPcpTMYo';
+const DEV_CUSTOM_TYPES_DEDUPE_WINDOW_MS = 1500;
+
+let customTypesInFlight: Promise<CustomDeviceType[]> | null = null;
+let lastCustomTypesFetchAt = 0;
+let lastCustomTypesResult: CustomDeviceType[] | null = null;
 
 export interface CustomDeviceType {
   id: string;
@@ -72,6 +77,19 @@ function ensureSupabase(): NonNullable<typeof supabase> {
 }
 
 export async function fetchCustomDeviceTypes(): Promise<CustomDeviceType[]> {
+  if (customTypesInFlight) {
+    return customTypesInFlight;
+  }
+
+  if (
+    import.meta.env.DEV &&
+    lastCustomTypesResult &&
+    Date.now() - lastCustomTypesFetchAt < DEV_CUSTOM_TYPES_DEDUPE_WINDOW_MS
+  ) {
+    return lastCustomTypesResult;
+  }
+
+  const request = (async () => {
   const appsScriptUrl = (import.meta.env.VITE_APPS_SCRIPT_SCHEMA_URL as string | undefined) ?? '';
   const appsScriptToken = (import.meta.env.VITE_APPS_SCRIPT_SCHEMA_TOKEN as string | undefined) ?? '';
   const spreadsheetId =
@@ -111,7 +129,7 @@ export async function fetchCustomDeviceTypes(): Promise<CustomDeviceType[]> {
         }),
       );
 
-      return validated
+      const result = validated
         .filter((name): name is string => typeof name === 'string' && name.trim().length > 0)
         .sort((a, b) => a.localeCompare(b, 'th'))
         .map((name) => ({
@@ -124,12 +142,20 @@ export async function fetchCustomDeviceTypes(): Promise<CustomDeviceType[]> {
           createdAt: null,
           updatedAt: null,
         }));
+
+      lastCustomTypesResult = result;
+      lastCustomTypesFetchAt = Date.now();
+      return result;
     } catch (error) {
       console.warn('[customDeviceTypes] Failed to load custom types from Google Sheets; falling back to Supabase:', error);
     }
   }
 
-  if (!isSupabaseEnabled || !supabase) return [];
+  if (!isSupabaseEnabled || !supabase) {
+    lastCustomTypesResult = [];
+    lastCustomTypesFetchAt = Date.now();
+    return [];
+  }
 
   const result = await (supabase.from('custom_device_types') as any)
     .select('*')
@@ -141,10 +167,24 @@ export async function fetchCustomDeviceTypes(): Promise<CustomDeviceType[]> {
       message: result.error.message,
       code: result.error.code,
     });
+    lastCustomTypesResult = [];
+    lastCustomTypesFetchAt = Date.now();
     return [];
   }
 
-  return (result.data ?? []).map(mapRow);
+  const mapped = (result.data ?? []).map(mapRow);
+  lastCustomTypesResult = mapped;
+  lastCustomTypesFetchAt = Date.now();
+  return mapped;
+  })();
+
+  customTypesInFlight = request;
+
+  try {
+    return await request;
+  } finally {
+    customTypesInFlight = null;
+  }
 }
 
 export async function createCustomDeviceType(input: CustomDeviceTypeInput): Promise<CustomDeviceType> {

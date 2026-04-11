@@ -11,6 +11,11 @@ const SHEET_WIFI =
 const SHEET_HYDRANT =
   'https://docs.google.com/spreadsheets/d/e/2PACX-1vQv7p9ib0xXet8Alyik_Fi9CdBVvZO8xz73K4k0wEoNqpwIWAKFGIfbk0IkE8knnp-LXvNA6OceINr1/pub?gid=872918807&single=true&output=csv';
 const LOCAL_DEVICE_CACHE_KEY = 'projectpruta.cached-devices';
+const DEV_FETCH_ALL_DEDUPE_WINDOW_MS = 1500;
+
+let fetchAllDevicesInFlight: Promise<Device[]> | null = null;
+let lastFetchAllDevicesAt = 0;
+let lastFetchAllDevicesResult: Device[] | null = null;
 
 interface StreetLightRow {
   ASSET_ID?: string;
@@ -657,6 +662,19 @@ export async function fetchDbDevices(): Promise<Device[]> {
 }
 
 export async function fetchAllDevices(): Promise<Device[]> {
+  if (fetchAllDevicesInFlight) {
+    return fetchAllDevicesInFlight;
+  }
+
+  if (
+    import.meta.env.DEV &&
+    lastFetchAllDevicesResult &&
+    Date.now() - lastFetchAllDevicesAt < DEV_FETCH_ALL_DEDUPE_WINDOW_MS
+  ) {
+    return lastFetchAllDevicesResult;
+  }
+
+  const request = (async () => {
   const [sheetDevices, dbResult] = await Promise.all([fetchSheetDevices(), fetchDbDevicesWithMeta()]);
   const dbDevices = dbResult.devices;
   const cachedDevices = getLocalCachedDevicesForMerge();
@@ -717,7 +735,19 @@ export async function fetchAllDevices(): Promise<Device[]> {
     console.debug('[data] Devices found in both Sheet and DB (DB version used):', overlap.size);
   }
 
+  lastFetchAllDevicesResult = merged;
+  lastFetchAllDevicesAt = Date.now();
+
   return merged;
+  })();
+
+  fetchAllDevicesInFlight = request;
+
+  try {
+    return await request;
+  } finally {
+    fetchAllDevicesInFlight = null;
+  }
 }
 
 export async function saveDevicePosition(input: NewDeviceInput): Promise<Device> {
